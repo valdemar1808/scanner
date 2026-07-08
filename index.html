@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Учёт склада — сканер</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg: #10151c;
+    --panel: #1a212b;
+    --panel-2: #212a36;
+    --accent: #ff8a3d;
+    --accent-2: #3ddc97;
+    --text: #eef1f5;
+    --text-dim: #8b96a5;
+    --border: #2c3644;
+    --danger: #ff5d5d;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: 20px 16px 40px;
+  }
+  .wrap{ width:100%; max-width:480px; }
+  header{ text-align:center; margin-bottom: 22px; }
+  header .tag{
+    display:inline-block; font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color: var(--accent); background: rgba(255,138,61,.12); border:1px solid rgba(255,138,61,.35);
+    padding: 4px 10px; border-radius: 999px; margin-bottom: 10px;
+  }
+  h1{ font-size: 22px; margin: 0 0 4px; font-weight: 700; }
+  header p{ color: var(--text-dim); font-size: 14px; margin:0; }
+
+  nav.tabs{
+    display:flex; gap:8px; background: var(--panel); border:1px solid var(--border);
+    border-radius: 12px; padding: 4px; margin-bottom: 18px;
+  }
+  nav.tabs button{
+    flex:1; padding: 10px 6px; border-radius: 9px; border:none; background:transparent;
+    color: var(--text-dim); font-size: 13px; font-weight:600; cursor:pointer;
+  }
+  nav.tabs button.active{ background: var(--panel-2); color: var(--text); }
+
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+
+  .warehouses{ display:grid; gap:12px; }
+  .wh-btn{
+    display:flex; align-items:center; justify-content:space-between;
+    background: var(--panel); border:1px solid var(--border); border-radius: 14px;
+    padding: 18px 18px; color: var(--text); font-size: 17px; font-weight:700;
+    cursor:pointer; text-align:left;
+  }
+  .wh-btn small{ display:block; color: var(--text-dim); font-weight:500; font-size:12px; margin-top:3px; }
+  .wh-btn .arrow{ color: var(--accent); font-size: 20px; }
+  .wh-btn:active{ background: var(--panel-2); }
+
+  #reader{ width:100%; border-radius: 14px; overflow:hidden; border:1px solid var(--border); background:#000; }
+  .scan-panel{ display:none; }
+  .scan-panel.active{ display:block; }
+  .scan-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px; }
+  .back-btn{
+    background: var(--panel); border:1px solid var(--border); color: var(--text);
+    padding: 8px 12px; border-radius: 10px; font-size: 13px; cursor:pointer;
+  }
+  .scan-title{ font-size: 15px; color: var(--text-dim); }
+  .scan-title b{ color: var(--text); }
+
+  .result{
+    margin-top: 16px; padding: 16px; border-radius: 14px; border:1px solid var(--border);
+    background: var(--panel); display:none;
+  }
+  .result.show{ display:block; }
+  .result.ok{ border-color: rgba(61,220,151,.5); background: rgba(61,220,151,.08); }
+  .result.err{ border-color: rgba(255,93,93,.5); background: rgba(255,93,93,.08); }
+  .result .label{ font-size:12px; text-transform:uppercase; letter-spacing:.08em; color: var(--text-dim); margin-bottom:6px; }
+  .result .msg{ font-size:16px; font-weight:700; line-height:1.4; }
+  .result .time{ font-size:12px; color: var(--text-dim); margin-top:8px; }
+
+  .log{ margin-top: 22px; }
+  .log h2{ font-size:13px; text-transform:uppercase; letter-spacing:.08em; color: var(--text-dim); margin: 0 0 10px; }
+  .log ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .log li{
+    background: var(--panel); border:1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; font-size: 13px; display:flex; justify-content:space-between; gap:10px;
+  }
+  .log li span.t{ color: var(--text-dim); white-space:nowrap; }
+  .clear-log{ margin-top:10px; background:none; border:none; color: var(--text-dim); font-size:12px; text-decoration:underline; cursor:pointer; padding:0; }
+
+  .qr-grid{ display:grid; gap:18px; }
+  .qr-card{
+    background: var(--panel); border:1px solid var(--border); border-radius: 14px;
+    padding: 18px; text-align:center;
+  }
+  .qr-card canvas{ margin: 10px auto; border-radius: 8px; background:#fff; padding:8px; }
+  .qr-card h3{ margin:0 0 4px; font-size:16px; }
+  .qr-card p{ margin:0; color: var(--text-dim); font-size: 13px; }
+  .qr-card .code{ font-family: monospace; font-size: 12px; color: var(--accent); margin-top: 6px; }
+  .print-btn{
+    margin-top: 16px; width:100%; background: var(--accent); color:#1a1206; border:none;
+    padding: 13px; border-radius: 12px; font-weight:700; font-size:14px; cursor:pointer;
+  }
+  .note{
+    background: var(--panel-2); border:1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px; font-size: 13px; color: var(--text-dim); line-height:1.5; margin-bottom:16px;
+  }
+  @media print{
+    nav.tabs, .print-btn, header .tag, .note{ display:none !important; }
+    body{ background:#fff; color:#000; }
+    .qr-card{ border-color:#ccc; break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="tag">Склад · Инвентаризация</span>
+    <h1>Перемещение оборудования</h1>
+    <p>Выберите склад и отсканируйте QR-код оборудования</p>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="scan">Сканер</button>
+    <button data-tab="codes">QR-коды</button>
+  </nav>
+
+  <!-- SCAN TAB -->
+  <section class="screen active" id="tab-scan">
+
+    <div class="warehouses" id="warehouseList">
+      <button class="wh-btn" data-wh="Склад 1">
+        <span>Склад 1<small>Нажмите, чтобы отсканировать</small></span>
+        <span class="arrow">›</span>
+      </button>
+      <button class="wh-btn" data-wh="Склад 2">
+        <span>Склад 2<small>Нажмите, чтобы отсканировать</small></span>
+        <span class="arrow">›</span>
+      </button>
+      <button class="wh-btn" data-wh="Склад 3">
+        <span>Склад 3<small>Нажмите, чтобы отсканировать</small></span>
+        <span class="arrow">›</span>
+      </button>
+    </div>
+
+    <div class="scan-panel" id="scanPanel">
+      <div class="scan-header">
+        <button class="back-btn" id="backBtn">← Назад</button>
+        <div class="scan-title">Склад: <b id="activeWh">—</b></div>
+      </div>
+      <div id="reader"></div>
+      <div class="result" id="result">
+        <div class="label">Результат</div>
+        <div class="msg" id="resultMsg"></div>
+        <div class="time" id="resultTime"></div>
+      </div>
+    </div>
+
+    <div class="log">
+      <h2>История сканирований (на этом телефоне)</h2>
+      <ul id="logList"></ul>
+      <button class="clear-log" id="clearLog">Очистить историю</button>
+    </div>
+  </section>
+
+  <!-- CODES TAB -->
+  <section class="screen" id="tab-codes">
+    <div class="note">
+      Это QR-коды трёх единиц оборудования. Распечатайте страницу или сфотографируйте коды
+      и наклейте/прикрепите их на оборудование. Именно эти коды нужно сканировать на вкладке «Сканер».
+    </div>
+    <div class="qr-grid" id="qrGrid"></div>
+    <button class="print-btn" id="printBtn">Распечатать QR-коды</button>
+  </section>
+
+</div>
+
+<script>
+// ---- Настройки: продукты и их коды ----
+const PRODUCTS = [
+  { id: "PRODUCT_1", name: "Продукт 1" },
+  { id: "PRODUCT_2", name: "Продукт 2" },
+  { id: "PRODUCT_3", name: "Продукт 3" },
+];
+
+// ---- Переключение вкладок ----
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab === 'scan'){ stopScanner(); showWarehouseList(); }
+  });
+});
+
+// ---- Генерация QR-кодов на вкладке "QR-коды" ----
+const qrGrid = document.getElementById('qrGrid');
+PRODUCTS.forEach(p=>{
+  const card = document.createElement('div');
+  card.className = 'qr-card';
+  card.innerHTML = `<h3>${p.name}</h3><canvas></canvas><p>Приклейте на оборудование</p><div class="code">${p.id}</div>`;
+  qrGrid.appendChild(card);
+  const canvas = card.querySelector('canvas');
+  QRCode.toCanvas(canvas, p.id, { width: 200, margin: 1, color: { dark:"#10151c", light:"#ffffff" } });
+});
+document.getElementById('printBtn').addEventListener('click', ()=> window.print());
+
+// ---- Логика сканера ----
+let html5QrCode = null;
+let currentWarehouse = null;
+
+const warehouseList = document.getElementById('warehouseList');
+const scanPanel = document.getElementById('scanPanel');
+const activeWhLabel = document.getElementById('activeWh');
+const resultBox = document.getElementById('result');
+const resultMsg = document.getElementById('resultMsg');
+const resultTime = document.getElementById('resultTime');
+
+function showWarehouseList(){
+  warehouseList.style.display = 'grid';
+  scanPanel.classList.remove('active');
+  resultBox.classList.remove('show','ok','err');
+}
+function showScanPanel(){
+  warehouseList.style.display = 'none';
+  scanPanel.classList.add('active');
+}
+
+document.querySelectorAll('.wh-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    currentWarehouse = btn.dataset.wh;
+    activeWhLabel.textContent = currentWarehouse;
+    showScanPanel();
+    startScanner();
+  });
+});
+
+document.getElementById('backBtn').addEventListener('click', ()=>{
+  stopScanner();
+  showWarehouseList();
+});
+
+function startScanner(){
+  resultBox.classList.remove('show','ok','err');
+  html5QrCode = new Html5Qrcode("reader");
+  const config = { fps: 10, qrbox: { width: 240, height: 240 } };
+
+  html5QrCode.start(
+    { facingMode: "environment" },
+    config,
+    onScanSuccess,
+    ()=>{ /* игнорируем ошибки распознавания кадра */ }
+  ).catch(err=>{
+    resultMsg.textContent = "Не удалось открыть камеру: " + err;
+    resultBox.classList.add('show','err');
+  });
+}
+
+function stopScanner(){
+  if(html5QrCode){
+    html5QrCode.stop().then(()=>html5QrCode.clear()).catch(()=>{});
+    html5QrCode = null;
+  }
+}
+
+function onScanSuccess(decodedText){
+  // временно ставим камеру на паузу, чтобы не сканировать повторно
+  if(html5QrCode){ html5QrCode.pause(true); }
+
+  const product = PRODUCTS.find(p => p.id === decodedText.trim());
+  const now = new Date().toLocaleString('ru-RU');
+
+  if(product){
+    const message = `${product.name} перемещён на «${currentWarehouse}»`;
+    resultMsg.textContent = message;
+    resultBox.classList.remove('err');
+    resultBox.classList.add('show','ok');
+    resultTime.textContent = now;
+    addToLog(message, now);
+    sendToDatabase({ product: product.id, warehouse: currentWarehouse, time: now, message });
+  } else {
+    resultMsg.textContent = "Неизвестный QR-код: " + decodedText;
+    resultBox.classList.remove('ok');
+    resultBox.classList.add('show','err');
+    resultTime.textContent = now;
+  }
+
+  // снова разрешаем сканирование через 2.5 секунды
+  setTimeout(()=>{ if(html5QrCode){ html5QrCode.resume(); } }, 2500);
+}
+
+// ---- Здесь в будущем — реальная отправка в базу данных ----
+function sendToDatabase(payload){
+  // ПРИМЕР на будущее (сейчас ничего никуда не шлёт):
+  //
+  // fetch("https://your-backend.example.com/api/scan", {
+  //   method: "POST",
+  //   headers: { "Content-Type": "application/json" },
+  //   body: JSON.stringify(payload)
+  // });
+  console.log("Отправка в базу данных (заглушка):", payload);
+}
+
+// ---- Локальная история сканирований (в памяти браузера/localStorage) ----
+const logList = document.getElementById('logList');
+
+function loadLog(){
+  const items = JSON.parse(localStorage.getItem('scanLog') || '[]');
+  logList.innerHTML = '';
+  items.slice().reverse().forEach(it=>{
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${it.message}</span><span class="t">${it.time}</span>`;
+    logList.appendChild(li);
+  });
+}
+
+function addToLog(message, time){
+  const items = JSON.parse(localStorage.getItem('scanLog') || '[]');
+  items.push({ message, time });
+  localStorage.setItem('scanLog', JSON.stringify(items));
+  loadLog();
+}
+
+document.getElementById('clearLog').addEventListener('click', ()=>{
+  localStorage.removeItem('scanLog');
+  loadLog();
+});
+
+loadLog();
+</script>
+</body>
+</html>
