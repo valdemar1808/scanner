@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Учёт оборудования — где что находится</title>
+<style>
+  :root{
+    --bg: #10151c; --panel: #1a212b; --panel-2: #212a36;
+    --accent: #ff8a3d; --accent-2: #3ddc97;
+    --text: #eef1f5; --text-dim: #8b96a5; --border: #2c3644;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    min-height:100vh;
+  }
+  .app{ max-width: 920px; margin: 0 auto; padding: 20px 16px 50px; }
+  header{ text-align:center; margin-bottom: 20px; }
+  header .tag{
+    display:inline-block; font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color: var(--accent); background: rgba(255,138,61,.12); border:1px solid rgba(255,138,61,.35);
+    padding: 4px 10px; border-radius: 999px; margin-bottom: 10px;
+  }
+  h1{ font-size: 22px; margin: 0 0 4px; font-weight: 700; }
+  header p{ color: var(--text-dim); font-size: 14px; margin:0; }
+  .top-links{ display:flex; justify-content:center; gap:14px; margin: 14px 0 24px; }
+  .top-links a{ color: var(--accent); font-size: 13px; text-decoration:none; border-bottom:1px dashed var(--accent); }
+
+  .layout{ display:flex; gap:18px; align-items:flex-start; }
+  @media (max-width: 680px){ .layout{ flex-direction:column; } }
+
+  nav.sidebar{
+    display:flex; flex-direction:column; gap:8px;
+    background: var(--panel); border:1px solid var(--border); border-radius: 14px;
+    padding: 10px; min-width: 220px;
+  }
+  @media (max-width: 680px){ nav.sidebar{ flex-direction:row; overflow-x:auto; min-width:0; } }
+  nav.sidebar button{
+    background: transparent; border:1px solid transparent; color: var(--text);
+    text-align:left; padding: 12px 14px; border-radius: 10px; font-size: 14px; font-weight:600;
+    cursor:pointer; white-space:nowrap;
+  }
+  nav.sidebar button.active{ background: var(--accent); color:#1a1206; }
+  nav.sidebar button:not(.active):hover{ background: var(--panel-2); }
+
+  main{ flex:1; min-width:0; }
+  .card{
+    background: var(--panel); border:1px solid var(--border); border-radius: 14px;
+    padding: 18px; margin-bottom: 14px;
+  }
+  .card h2{ margin:0 0 14px; font-size: 17px; }
+  table{ width:100%; border-collapse: collapse; font-size: 14px; }
+  th{ text-align:left; color: var(--text-dim); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.05em; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  td{ padding: 10px; border-bottom: 1px solid var(--border); }
+  tr:last-child td{ border-bottom:none; }
+  .empty{ color: var(--text-dim); font-size: 14px; padding: 10px 0; }
+  .loading{ color: var(--text-dim); font-size: 14px; }
+  .err{ color:#ff5d5d; font-size: 14px; }
+  .badge{ display:inline-block; padding:3px 8px; border-radius:999px; font-size:12px; background: rgba(61,220,151,.15); color: var(--accent-2); border:1px solid rgba(61,220,151,.4); }
+  .refresh-btn{
+    background: var(--panel-2); border:1px solid var(--border); color: var(--text);
+    padding: 8px 14px; border-radius: 10px; font-size: 13px; cursor:pointer;
+  }
+  .card-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom: 14px; }
+  .card-header h2{ margin:0; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <span class="tag">Учёт оборудования</span>
+    <h1>Где сейчас оборудование</h1>
+    <p>Выберите склад слева, чтобы увидеть его содержимое</p>
+  </header>
+
+  <div class="top-links">
+    <a href="./index.html">← Вернуться к сканеру</a>
+  </div>
+
+  <div class="layout">
+    <nav class="sidebar" id="sidebar"></nav>
+    <main>
+      <div class="card">
+        <div class="card-header">
+          <h2 id="locTitle">—</h2>
+          <button class="refresh-btn" id="refreshBtn">Обновить</button>
+        </div>
+        <div id="content" class="loading">Загрузка…</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h2>Последние операции по этому складу</h2></div>
+        <div id="movements" class="loading">Загрузка…</div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+// ====== НАСТРОЙКИ SUPABASE — те же, что в index.html ======
+const SUPABASE_URL = "https://jezwkodmpebnsuvkcbem.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implendrb2RtcGVibnN1dmtjYmVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NDczNDksImV4cCI6MjA5OTEyMzM0OX0.m0ufckWqLyT6CY9emxm5Ju8WoQoYXYlw6Sq4pvhouZQ";
+// =============================================================
+
+const LOCATIONS = ["Склад Офис 2 этаж", "Склад ОЗиЛ", "НТЦ"];
+let currentLocation = LOCATIONS[0];
+
+const sidebar = document.getElementById('sidebar');
+const locTitle = document.getElementById('locTitle');
+const content = document.getElementById('content');
+const movementsBox = document.getElementById('movements');
+
+LOCATIONS.forEach(loc=>{
+  const b = document.createElement('button');
+  b.textContent = loc;
+  if(loc === currentLocation) b.classList.add('active');
+  b.addEventListener('click', ()=>{
+    currentLocation = loc;
+    [...sidebar.children].forEach(c=>c.classList.remove('active'));
+    b.classList.add('active');
+    loadData();
+  });
+  sidebar.appendChild(b);
+});
+
+document.getElementById('refreshBtn').addEventListener('click', loadData);
+
+function headers(){
+  return {
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+  };
+}
+
+async function loadData(){
+  locTitle.textContent = currentLocation;
+  content.className = 'loading';
+  content.textContent = 'Загрузка…';
+  movementsBox.className = 'loading';
+  movementsBox.textContent = 'Загрузка…';
+
+  if(SUPABASE_URL.includes('YOUR_PROJECT')){
+    content.className = 'err';
+    content.textContent = 'Supabase не настроен: впишите SUPABASE_URL и SUPABASE_ANON_KEY в начало этого файла.';
+    movementsBox.className = 'err';
+    movementsBox.textContent = '—';
+    return;
+  }
+
+  try{
+    // Оборудование, которое сейчас находится в этом месте
+    const eqUrl = `${SUPABASE_URL}/rest/v1/equipment?current_location=eq.${encodeURIComponent(currentLocation)}&select=id,name,current_location,updated_at&order=updated_at.desc`;
+    const eqRes = await fetch(eqUrl, { headers: headers() });
+    if(!eqRes.ok) throw new Error(await eqRes.text());
+    const equipment = await eqRes.json();
+
+    if(equipment.length === 0){
+      content.className = 'empty';
+      content.textContent = 'Сейчас здесь ничего не числится.';
+    } else {
+      const rows = equipment.map(e => `
+        <tr>
+          <td>${e.name} <span style="color:var(--text-dim); font-size:12px;">(${e.id})</span></td>
+          <td>${new Date(e.updated_at).toLocaleString('ru-RU')}</td>
+        </tr>`).join('');
+      content.className = '';
+      content.innerHTML = `
+        <table>
+          <thead><tr><th>Оборудование</th><th>Дата последнего перемещения</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    // Последние операции, связанные с этим складом (откуда или куда)
+    const movUrl = `${SUPABASE_URL}/rest/v1/movements?or=(from_location.eq.${encodeURIComponent(currentLocation)},to_location.eq.${encodeURIComponent(currentLocation)})&select=*&order=created_at.desc&limit=20`;
+    const movRes = await fetch(movUrl, { headers: headers() });
+    if(!movRes.ok) throw new Error(await movRes.text());
+    const movements = await movRes.json();
+
+    if(movements.length === 0){
+      movementsBox.className = 'empty';
+      movementsBox.textContent = 'Пока нет операций по этому складу.';
+    } else {
+      const rows = movements.map(m => `
+        <tr>
+          <td><span class="badge">${m.type}</span></td>
+          <td>${m.equipment_name || m.equipment_id}</td>
+          <td>${m.from_location || '—'} → ${m.to_location || '—'}</td>
+          <td>${new Date(m.created_at).toLocaleString('ru-RU')}</td>
+        </tr>`).join('');
+      movementsBox.className = '';
+      movementsBox.innerHTML = `
+        <table>
+          <thead><tr><th>Тип</th><th>Оборудование</th><th>Маршрут</th><th>Дата</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+  } catch(e){
+    content.className = 'err';
+    content.textContent = 'Ошибка загрузки: ' + e.message;
+    movementsBox.className = 'err';
+    movementsBox.textContent = '—';
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>

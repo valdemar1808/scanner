@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Учёт склада — сканер</title>
+<title>Учёт оборудования — сканер</title>
 <script src="./html5-qrcode.min.js"></script>
-<script src="./qrcode.min.js"></script>
 <style>
   :root{
     --bg: #10151c;
@@ -21,13 +20,9 @@
   *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
   html,body{margin:0;padding:0;}
   body{
-    background: var(--bg);
-    color: var(--text);
+    background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    min-height:100vh;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;
     padding: 20px 16px 40px;
   }
   .wrap{ width:100%; max-width:480px; }
@@ -40,40 +35,56 @@
   h1{ font-size: 22px; margin: 0 0 4px; font-weight: 700; }
   header p{ color: var(--text-dim); font-size: 14px; margin:0; }
 
-  nav.tabs{
-    display:flex; gap:8px; background: var(--panel); border:1px solid var(--border);
-    border-radius: 12px; padding: 4px; margin-bottom: 18px;
-  }
-  nav.tabs button{
-    flex:1; padding: 10px 6px; border-radius: 9px; border:none; background:transparent;
-    color: var(--text-dim); font-size: 13px; font-weight:600; cursor:pointer;
-  }
-  nav.tabs button.active{ background: var(--panel-2); color: var(--text); }
+  .top-links{ display:flex; justify-content:center; gap:14px; margin-bottom:18px; }
+  .top-links a{ color: var(--accent); font-size: 13px; text-decoration:none; border-bottom:1px dashed var(--accent); }
 
   .screen{ display:none; }
   .screen.active{ display:block; }
 
-  .warehouses{ display:grid; gap:12px; }
-  .wh-btn{
+  .actions{ display:grid; gap:12px; }
+  .action-btn{
     display:flex; align-items:center; justify-content:space-between;
-    background: var(--panel); border:1px solid var(--border); border-radius: 14px;
-    padding: 18px 18px; color: var(--text); font-size: 17px; font-weight:700;
-    cursor:pointer; text-align:left;
+    border:1px solid var(--border); border-radius: 14px; padding: 20px 18px;
+    color: var(--text); font-size: 18px; font-weight:700; cursor:pointer; text-align:left;
   }
-  .wh-btn small{ display:block; color: var(--text-dim); font-weight:500; font-size:12px; margin-top:3px; }
-  .wh-btn .arrow{ color: var(--accent); font-size: 20px; }
-  .wh-btn:active{ background: var(--panel-2); }
+  .action-btn small{ display:block; color: var(--text-dim); font-weight:500; font-size:12px; margin-top:3px; }
+  .action-btn .arrow{ font-size: 20px; }
+  #act-prihod{ background: rgba(61,220,151,.10); border-color: rgba(61,220,151,.4); }
+  #act-prihod .arrow{ color: var(--accent-2); }
+  #act-otpr{ background: rgba(255,138,61,.10); border-color: rgba(255,138,61,.4); }
+  #act-otpr .arrow{ color: var(--accent); }
+  #act-spis{ background: rgba(255,93,93,.10); border-color: rgba(255,93,93,.4); }
+  #act-spis .arrow{ color: var(--danger); }
+  .action-btn:active{ filter: brightness(1.15); }
 
-  #reader{ width:100%; border-radius: 14px; overflow:hidden; border:1px solid var(--border); background:#000; }
-  .scan-panel{ display:none; }
-  .scan-panel.active{ display:block; }
-  .scan-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px; }
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+  .panel-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom: 14px; }
   .back-btn{
     background: var(--panel); border:1px solid var(--border); color: var(--text);
     padding: 8px 12px; border-radius: 10px; font-size: 13px; cursor:pointer;
   }
-  .scan-title{ font-size: 15px; color: var(--text-dim); }
-  .scan-title b{ color: var(--text); }
+  .panel-title{ font-size: 15px; color: var(--text-dim); }
+  .panel-title b{ color: var(--text); }
+
+  .field{ margin-bottom: 16px; }
+  .field label{ display:block; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color: var(--text-dim); margin-bottom:8px; }
+  .loc-grid{ display:grid; gap:8px; }
+  .loc-btn{
+    background: var(--panel); border:1px solid var(--border); border-radius: 12px;
+    padding: 13px 14px; color: var(--text); font-size: 15px; font-weight:600; text-align:left; cursor:pointer;
+  }
+  .loc-btn.selected{ background: var(--accent); color:#1a1206; border-color: var(--accent); }
+  .loc-btn:active{ filter: brightness(1.1); }
+
+  .continue-btn{
+    width:100%; background: var(--accent); color:#1a1206; border:none;
+    padding: 14px; border-radius: 12px; font-weight:700; font-size:15px; cursor:pointer;
+    margin-top: 6px;
+  }
+  .continue-btn:disabled{ opacity:.4; }
+
+  #reader{ width:100%; border-radius: 14px; overflow:hidden; border:1px solid var(--border); background:#000; }
 
   .result{
     margin-top: 16px; padding: 16px; border-radius: 14px; border:1px solid var(--border);
@@ -95,74 +106,36 @@
   }
   .log li span.t{ color: var(--text-dim); white-space:nowrap; }
   .clear-log{ margin-top:10px; background:none; border:none; color: var(--text-dim); font-size:12px; text-decoration:underline; cursor:pointer; padding:0; }
-
-  .qr-grid{ display:grid; gap:18px; }
-  .qr-card{
-    background: var(--panel); border:1px solid var(--border); border-radius: 14px;
-    padding: 18px; text-align:center;
-  }
-  .qr-card canvas, .qr-card img, .qr-card table{ margin: 10px auto; border-radius: 8px; background:#fff; padding:8px; display:block; }
-  .qr-card h3{ margin:0 0 4px; font-size:16px; }
-  .qr-card p{ margin:0; color: var(--text-dim); font-size: 13px; }
-  .qr-card .code{ font-family: monospace; font-size: 12px; color: var(--accent); margin-top: 6px; }
-  .print-btn{
-    margin-top: 16px; width:100%; background: var(--accent); color:#1a1206; border:none;
-    padding: 13px; border-radius: 12px; font-weight:700; font-size:14px; cursor:pointer;
-  }
-  .note{
-    background: var(--panel-2); border:1px solid var(--border); border-radius: 12px;
-    padding: 12px 14px; font-size: 13px; color: var(--text-dim); line-height:1.5; margin-bottom:16px;
-  }
-  @media print{
-    nav.tabs, .print-btn, header .tag, .note{ display:none !important; }
-    body{ background:#fff; color:#000; }
-    .qr-card{ border-color:#ccc; break-inside: avoid; }
-  }
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <header>
-    <span class="tag">Склад · Инвентаризация</span>
+    <span class="tag">Учёт оборудования</span>
     <h1>Перемещение оборудования</h1>
-    <p>Выберите склад и отсканируйте QR-код оборудования</p>
+    <p>Выберите тип операции и отсканируйте QR-код</p>
   </header>
 
-  <nav class="tabs">
-    <button class="active" data-tab="scan">Сканер</button>
-    <button data-tab="codes">QR-коды</button>
-  </nav>
+  <div class="top-links">
+    <a href="./dashboard.html">Открыть просмотр складов →</a>
+  </div>
 
-  <!-- SCAN TAB -->
-  <section class="screen active" id="tab-scan">
-
-    <div class="warehouses" id="warehouseList">
-      <button class="wh-btn" data-wh="Склад 1">
-        <span>Склад 1<small>Нажмите, чтобы отсканировать</small></span>
+  <!-- ЭКРАН 1: выбор действия -->
+  <section class="screen active" id="screen-main">
+    <div class="actions">
+      <button class="action-btn" id="act-prihod" data-type="Приход">
+        <span>Приход<small>Оборудование поступает на склад</small></span>
         <span class="arrow">›</span>
       </button>
-      <button class="wh-btn" data-wh="Склад 2">
-        <span>Склад 2<small>Нажмите, чтобы отсканировать</small></span>
+      <button class="action-btn" id="act-otpr" data-type="Отправление">
+        <span>Отправление<small>Перемещение между складами</small></span>
         <span class="arrow">›</span>
       </button>
-      <button class="wh-btn" data-wh="Склад 3">
-        <span>Склад 3<small>Нажмите, чтобы отсканировать</small></span>
+      <button class="action-btn" id="act-spis" data-type="Списание">
+        <span>Списание<small>Оборудование выводится из учёта</small></span>
         <span class="arrow">›</span>
       </button>
-    </div>
-
-    <div class="scan-panel" id="scanPanel">
-      <div class="scan-header">
-        <button class="back-btn" id="backBtn">← Назад</button>
-        <div class="scan-title">Склад: <b id="activeWh">—</b></div>
-      </div>
-      <div id="reader"></div>
-      <div class="result" id="result">
-        <div class="label">Результат</div>
-        <div class="msg" id="resultMsg"></div>
-        <div class="time" id="resultTime"></div>
-      </div>
     </div>
 
     <div class="log">
@@ -172,164 +145,224 @@
     </div>
   </section>
 
-  <!-- CODES TAB -->
-  <section class="screen" id="tab-codes">
-    <div class="note">
-      Это QR-коды трёх единиц оборудования. Распечатайте страницу или сфотографируйте коды
-      и наклейте/прикрепите их на оборудование. Именно эти коды нужно сканировать на вкладке «Сканер».
+  <!-- ЭКРАН 2: выбор склада(ов) -->
+  <section class="panel" id="panel-locations">
+    <div class="panel-header">
+      <button class="back-btn" id="backToMain">← Назад</button>
+      <div class="panel-title">Операция: <b id="opTypeLabel">—</b></div>
     </div>
-    <div class="qr-grid" id="qrGrid"></div>
-    <button class="print-btn" id="printBtn">Распечатать QR-коды</button>
+
+    <div class="field" id="fromField">
+      <label>Откуда</label>
+      <div class="loc-grid" id="fromGrid"></div>
+    </div>
+    <div class="field" id="toField">
+      <label>Куда</label>
+      <div class="loc-grid" id="toGrid"></div>
+    </div>
+
+    <button class="continue-btn" id="continueBtn" disabled>Продолжить к сканированию</button>
+  </section>
+
+  <!-- ЭКРАН 3: сканер -->
+  <section class="panel" id="panel-scan">
+    <div class="panel-header">
+      <button class="back-btn" id="backToLocations">← Назад</button>
+      <div class="panel-title" id="scanSummary"></div>
+    </div>
+    <div id="reader"></div>
+    <div class="result" id="result">
+      <div class="label">Результат</div>
+      <div class="msg" id="resultMsg"></div>
+      <div class="time" id="resultTime"></div>
+    </div>
   </section>
 
 </div>
 
 <script>
-// ---- Настройки: продукты и их коды ----
-const PRODUCTS = [
-  { id: "PRODUCT_1", name: "Продукт 1" },
-  { id: "PRODUCT_2", name: "Продукт 2" },
-  { id: "PRODUCT_3", name: "Продукт 3" },
-];
+// ====== НАСТРОЙКИ SUPABASE — заполните своими значениями ======
+const SUPABASE_URL = "https://jezwkodmpebnsuvkcbem.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implendrb2RtcGVibnN1dmtjYmVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NDczNDksImV4cCI6MjA5OTEyMzM0OX0.m0ufckWqLyT6CY9emxm5Ju8WoQoYXYlw6Sq4pvhouZQ";
+// ================================================================
 
-// ---- Переключение вкладок ----
-document.querySelectorAll('nav.tabs button').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
-    if(btn.dataset.tab === 'scan'){ stopScanner(); showWarehouseList(); }
-  });
-});
+const LOCATIONS = ["Склад Офис 2 этаж", "Склад ОЗиЛ", "НТЦ"];
+const PRODUCTS = {
+  "PRODUCT_1": "Продукт 1",
+  "PRODUCT_2": "Продукт 2",
+  "PRODUCT_3": "Продукт 3",
+};
 
-// ---- Генерация QR-кодов на вкладке "QR-коды" ----
-try{
-  if(typeof QRCode === 'undefined'){
-    throw new Error('Файл qrcode.min.js не найден рядом с index.html. Загрузите его в тот же репозиторий на GitHub.');
-  }
-  const qrGrid = document.getElementById('qrGrid');
-  PRODUCTS.forEach(p=>{
-    const card = document.createElement('div');
-    card.className = 'qr-card';
-    const qrHolder = document.createElement('div');
-    qrHolder.style.display = 'inline-block';
-    card.innerHTML = `<h3>${p.name}</h3><p>Приклейте на оборудование</p><div class="code">${p.id}</div>`;
-    card.insertBefore(qrHolder, card.querySelector('p'));
-    qrGrid.appendChild(card);
-    new QRCode(qrHolder, { text: p.id, width: 200, height: 200, colorDark:"#10151c", colorLight:"#ffffff" });
-  });
-} catch(e){
-  document.getElementById('qrGrid').innerHTML =
-    `<div class="result show err">Не удалось создать QR-коды: ${e.message}</div>`;
-  console.error(e);
-}
-document.getElementById('printBtn').addEventListener('click', ()=> window.print());
-
-// ---- Логика сканера ----
+let state = { type:null, from:null, to:null };
 let html5QrCode = null;
-let currentWarehouse = null;
 
-const warehouseList = document.getElementById('warehouseList');
-const scanPanel = document.getElementById('scanPanel');
-const activeWhLabel = document.getElementById('activeWh');
+const screenMain = document.getElementById('screen-main');
+const panelLocations = document.getElementById('panel-locations');
+const panelScan = document.getElementById('panel-scan');
+const fromField = document.getElementById('fromField');
+const toField = document.getElementById('toField');
+const fromGrid = document.getElementById('fromGrid');
+const toGrid = document.getElementById('toGrid');
+const continueBtn = document.getElementById('continueBtn');
+const opTypeLabel = document.getElementById('opTypeLabel');
+const scanSummary = document.getElementById('scanSummary');
 const resultBox = document.getElementById('result');
 const resultMsg = document.getElementById('resultMsg');
 const resultTime = document.getElementById('resultTime');
 
-function showWarehouseList(){
-  warehouseList.style.display = 'grid';
-  scanPanel.classList.remove('active');
-  resultBox.classList.remove('show','ok','err');
+function buildLocButtons(container, key){
+  container.innerHTML = '';
+  LOCATIONS.forEach(loc=>{
+    const b = document.createElement('button');
+    b.className = 'loc-btn';
+    b.textContent = loc;
+    b.addEventListener('click', ()=>{
+      state[key] = loc;
+      [...container.children].forEach(c=>c.classList.remove('selected'));
+      b.classList.add('selected');
+      updateContinueState();
+    });
+    container.appendChild(b);
+  });
 }
-function showScanPanel(){
-  warehouseList.style.display = 'none';
-  scanPanel.classList.add('active');
+buildLocButtons(fromGrid, 'from');
+buildLocButtons(toGrid, 'to');
+
+function updateContinueState(){
+  let ok = false;
+  if(state.type === 'Приход') ok = !!state.to;
+  else if(state.type === 'Списание') ok = !!state.from;
+  else if(state.type === 'Отправление') ok = !!state.from && !!state.to && state.from !== state.to;
+  continueBtn.disabled = !ok;
 }
 
-document.querySelectorAll('.wh-btn').forEach(btn=>{
+document.querySelectorAll('.action-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
-    currentWarehouse = btn.dataset.wh;
-    activeWhLabel.textContent = currentWarehouse;
-    showScanPanel();
-    if(typeof Html5Qrcode === 'undefined'){
-      resultMsg.textContent = 'Файл html5-qrcode.min.js не найден рядом с index.html. Загрузите его в тот же репозиторий на GitHub (см. инструкцию).';
-      resultBox.classList.add('show','err');
-      return;
-    }
-    startScanner();
+    state = { type: btn.dataset.type, from:null, to:null };
+    opTypeLabel.textContent = state.type;
+    [...fromGrid.children, ...toGrid.children].forEach(c=>c.classList.remove('selected'));
+
+    fromField.style.display = (state.type === 'Приход') ? 'none' : 'block';
+    toField.style.display = (state.type === 'Списание') ? 'none' : 'block';
+
+    updateContinueState();
+    screenMain.classList.remove('active');
+    panelLocations.classList.add('active');
   });
 });
 
-document.getElementById('backBtn').addEventListener('click', ()=>{
+document.getElementById('backToMain').addEventListener('click', ()=>{
+  panelLocations.classList.remove('active');
+  screenMain.classList.add('active');
+});
+
+document.getElementById('continueBtn').addEventListener('click', ()=>{
+  let summary = state.type;
+  if(state.from) summary += ' · из «' + state.from + '»';
+  if(state.to) summary += ' · в «' + state.to + '»';
+  scanSummary.textContent = summary;
+
+  panelLocations.classList.remove('active');
+  panelScan.classList.add('active');
+  resultBox.classList.remove('show','ok','err');
+  startScanner();
+});
+
+document.getElementById('backToLocations').addEventListener('click', ()=>{
   stopScanner();
-  showWarehouseList();
+  panelScan.classList.remove('active');
+  panelLocations.classList.add('active');
 });
 
 function startScanner(){
-  resultBox.classList.remove('show','ok','err');
+  if(typeof Html5Qrcode === 'undefined'){
+    resultMsg.textContent = 'Файл html5-qrcode.min.js не найден рядом с index.html. Загрузите его в репозиторий.';
+    resultBox.classList.add('show','err');
+    return;
+  }
   html5QrCode = new Html5Qrcode("reader");
   const config = { fps: 10, qrbox: { width: 240, height: 240 } };
-
   html5QrCode.start(
-    { facingMode: "environment" },
-    config,
-    onScanSuccess,
-    ()=>{ /* игнорируем ошибки распознавания кадра */ }
+    { facingMode: "environment" }, config, onScanSuccess, ()=>{}
   ).catch(err=>{
     resultMsg.textContent = "Не удалось открыть камеру: " + err;
     resultBox.classList.add('show','err');
   });
 }
-
 function stopScanner(){
-  if(html5QrCode){
-    html5QrCode.stop().then(()=>html5QrCode.clear()).catch(()=>{});
-    html5QrCode = null;
-  }
+  if(html5QrCode){ html5QrCode.stop().then(()=>html5QrCode.clear()).catch(()=>{}); html5QrCode = null; }
 }
 
 function onScanSuccess(decodedText){
-  // временно ставим камеру на паузу, чтобы не сканировать повторно
   if(html5QrCode){ html5QrCode.pause(true); }
-
-  const product = PRODUCTS.find(p => p.id === decodedText.trim());
+  const code = decodedText.trim();
   const now = new Date().toLocaleString('ru-RU');
+  const productName = PRODUCTS[code];
 
-  if(product){
-    const message = `${product.name} перемещён на «${currentWarehouse}»`;
-    resultMsg.textContent = message;
-    resultBox.classList.remove('err');
-    resultBox.classList.add('show','ok');
+  if(!productName){
+    resultMsg.textContent = "Неизвестный QR-код: " + code;
+    resultBox.classList.remove('ok'); resultBox.classList.add('show','err');
     resultTime.textContent = now;
-    addToLog(message, now);
-    sendToDatabase({ product: product.id, warehouse: currentWarehouse, time: now, message });
-  } else {
-    resultMsg.textContent = "Неизвестный QR-код: " + decodedText;
-    resultBox.classList.remove('ok');
-    resultBox.classList.add('show','err');
-    resultTime.textContent = now;
+    setTimeout(()=>{ if(html5QrCode){ html5QrCode.resume(); } }, 2000);
+    return;
   }
 
-  // снова разрешаем сканирование через 2.5 секунды
-  setTimeout(()=>{ if(html5QrCode){ html5QrCode.resume(); } }, 2500);
+  let message = `${productName}: ${state.type.toLowerCase()}`;
+  if(state.from) message += `, из «${state.from}»`;
+  if(state.to) message += `, в «${state.to}»`;
+
+  resultMsg.textContent = message;
+  resultBox.classList.remove('err'); resultBox.classList.add('show','ok');
+  resultTime.textContent = now + ' · отправка в базу…';
+  addToLog(message, now);
+
+  sendToSupabase({
+    equipment_id: code,
+    equipment_name: productName,
+    type: state.type,
+    from_location: state.from || null,
+    to_location: state.to || null,
+  }).then(()=>{
+    resultTime.textContent = now + ' · сохранено в базе ✓';
+  }).catch(err=>{
+    resultTime.textContent = now + ' · ошибка отправки в базу: ' + err.message;
+  });
+
+  setTimeout(()=>{
+    stopScanner();
+    panelScan.classList.remove('active');
+    screenMain.classList.add('active');
+  }, 2000);
 }
 
-// ---- Здесь в будущем — реальная отправка в базу данных ----
-function sendToDatabase(payload){
-  // ПРИМЕР на будущее (сейчас ничего никуда не шлёт):
-  //
-  // fetch("https://your-backend.example.com/api/scan", {
-  //   method: "POST",
-  //   headers: { "Content-Type": "application/json" },
-  //   body: JSON.stringify(payload)
-  // });
-  console.log("Отправка в базу данных (заглушка):", payload);
+async function sendToSupabase(payload){
+  if(SUPABASE_URL.includes('YOUR_PROJECT')){
+    throw new Error('Supabase не настроен (впишите URL и ключ в index.html)');
+  }
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+    'Prefer': 'return=representation'
+  };
+
+  // 1. Пишем запись в историю перемещений
+  const movRes = await fetch(SUPABASE_URL + '/rest/v1/movements', {
+    method: 'POST', headers, body: JSON.stringify([payload])
+  });
+  if(!movRes.ok) throw new Error('movements: ' + (await movRes.text()));
+
+  // 2. Обновляем текущее местоположение оборудования
+  const newLocation = payload.type === 'Списание' ? 'Списано' : payload.to_location;
+  const eqRes = await fetch(SUPABASE_URL + '/rest/v1/equipment?id=eq.' + encodeURIComponent(payload.equipment_id), {
+    method: 'PATCH', headers,
+    body: JSON.stringify({ current_location: newLocation, updated_at: new Date().toISOString() })
+  });
+  if(!eqRes.ok) throw new Error('equipment: ' + (await eqRes.text()));
 }
 
-// ---- Локальная история сканирований (в памяти браузера/localStorage) ----
+// ---- Локальная история сканирований ----
 const logList = document.getElementById('logList');
-
 function loadLog(){
   const items = JSON.parse(localStorage.getItem('scanLog') || '[]');
   logList.innerHTML = '';
@@ -339,19 +372,15 @@ function loadLog(){
     logList.appendChild(li);
   });
 }
-
 function addToLog(message, time){
   const items = JSON.parse(localStorage.getItem('scanLog') || '[]');
   items.push({ message, time });
   localStorage.setItem('scanLog', JSON.stringify(items));
   loadLog();
 }
-
 document.getElementById('clearLog').addEventListener('click', ()=>{
-  localStorage.removeItem('scanLog');
-  loadLog();
+  localStorage.removeItem('scanLog'); loadLog();
 });
-
 loadLog();
 </script>
 </body>
