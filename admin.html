@@ -139,8 +139,17 @@ document.querySelectorAll('nav.tabs button').forEach(btn=>{
   });
 });
 
+const translitMap = {
+  а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',й:'y',к:'k',л:'l',
+  м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'c',ч:'ch',ш:'sh',
+  щ:'sch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya'
+};
+function translit(text){
+  return text.toLowerCase().split('').map(ch => translitMap[ch] !== undefined ? translitMap[ch] : ch).join('');
+}
 function slugId(prefix, text){
-  const clean = text.toUpperCase().replace(/[^A-ZА-Я0-9]+/gi,'_').replace(/^_+|_+$/g,'');
+  const translitText = translit(text);
+  const clean = translitText.toUpperCase().replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');
   return prefix + '_' + clean + '_' + Math.random().toString(36).slice(2,6).toUpperCase();
 }
 
