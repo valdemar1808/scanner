@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Управление оборудованием и стеллажами</title>
+<script src="./config.js"></script>
+<script src="./auth.js"></script>
+<script src="./qrcode.min.js"></script>
+<style>
+  :root{ --bg:#10151c; --panel:#1a212b; --panel-2:#212a36; --accent:#ff8a3d; --accent-2:#3ddc97;
+    --text:#eef1f5; --text-dim:#8b96a5; --border:#2c3644; --danger:#ff5d5d; }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{ background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; min-height:100vh; }
+  .app{ max-width: 720px; margin:0 auto; padding:20px 16px 60px; }
+  header{ text-align:center; margin-bottom:14px; }
+  header .tag{ display:inline-block; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent);
+    background:rgba(255,138,61,.12); border:1px solid rgba(255,138,61,.35); padding:4px 10px; border-radius:999px; margin-bottom:10px; }
+  h1{ font-size:22px; margin:0 0 4px; } header p{ color:var(--text-dim); font-size:14px; margin:0; }
+  .top-links{ display:flex; justify-content:center; gap:14px; margin:12px 0; flex-wrap:wrap; }
+  .top-links a{ color:var(--accent); font-size:13px; text-decoration:none; border-bottom:1px dashed var(--accent); }
+  .userbar{ text-align:center; font-size:13px; margin-bottom:20px; }
+
+  nav.tabs{ display:flex; gap:8px; background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:4px; margin-bottom:18px; }
+  nav.tabs button{ flex:1; padding:10px 6px; border-radius:9px; border:none; background:transparent; color:var(--text-dim); font-size:13px; font-weight:600; cursor:pointer; }
+  nav.tabs button.active{ background:var(--panel-2); color:var(--text); }
+  .screen{ display:none; } .screen.active{ display:block; }
+
+  .card{ background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:16px; }
+  .card h2{ margin:0 0 14px; font-size:16px; }
+  label{ display:block; font-size:12px; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px; }
+  input, select{ width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--panel-2);
+    color:var(--text); font-size:15px; margin-bottom:14px; box-sizing:border-box; }
+  .btn{ background:var(--accent); color:#1a1206; border:none; padding:13px; border-radius:12px; font-weight:700; font-size:14px; cursor:pointer; width:100%; }
+  .msg{ font-size:13px; margin-top:10px; }
+  .msg.ok{ color: var(--accent-2); } .msg.err{ color: var(--danger); }
+
+  .qr-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap:14px; margin-top: 6px; }
+  .qr-card{ background:var(--panel-2); border:1px solid var(--border); border-radius:12px; padding:12px; text-align:center; }
+  .qr-card canvas, .qr-card img, .qr-card table{ margin:6px auto; border-radius:6px; background:#fff; padding:6px; }
+  .qr-card h3{ margin:0; font-size:13px; }
+  .qr-card .sub{ color:var(--text-dim); font-size:11px; margin-top:2px; }
+  .qr-card .code{ font-family:monospace; font-size:10px; color:var(--accent); margin-top:4px; word-break:break-all; }
+  .print-btn{ margin-top:16px; width:100%; background:var(--panel-2); color:var(--text); border:1px solid var(--border);
+    padding:12px; border-radius:12px; font-weight:700; font-size:14px; cursor:pointer; }
+  .list{ font-size:14px; }
+  .list-item{ display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); }
+  .list-item:last-child{ border-bottom:none; }
+  .list-item .meta{ color:var(--text-dim); font-size:12px; }
+  @media print{ nav.tabs, .top-links, .userbar, .print-btn, header .tag, .card:not(.printable){ display:none !important; } body{ background:#fff; color:#000; } .qr-card{ border-color:#ccc; break-inside:avoid; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="tag">Учёт оборудования</span>
+    <h1>Управление оборудованием и стеллажами</h1>
+    <p>Добавляйте новое оборудование и стеллажи — QR-код создастся автоматически</p>
+  </header>
+  <div class="top-links">
+    <a href="./index.html">← К сканеру</a>
+    <a href="./dashboard.html">Просмотр складов →</a>
+  </div>
+  <div class="userbar" id="userbar"></div>
+
+  <nav class="tabs">
+    <button class="active" data-tab="equipment">Оборудование</button>
+    <button data-tab="racks">Стеллажи</button>
+    <button data-tab="print">Все QR-коды</button>
+  </nav>
+
+  <!-- ОБОРУДОВАНИЕ -->
+  <section class="screen active" id="tab-equipment">
+    <div class="card">
+      <h2>Добавить оборудование</h2>
+      <label>Название</label>
+      <input id="eqName" placeholder="напр. Малахит 16">
+      <label>Серийный номер</label>
+      <input id="eqSerial" placeholder="напр. SN-0006">
+      <label>Начальный склад</label>
+      <select id="eqLocation">
+        <option>Склад Офис 2 этаж</option>
+        <option>Склад ОЗиЛ</option>
+        <option>НТЦ</option>
+      </select>
+      <button class="btn" id="addEqBtn">Добавить и создать QR-код</button>
+      <div id="eqMsg" class="msg"></div>
+    </div>
+    <div class="card">
+      <h2>Существующее оборудование</h2>
+      <div class="list" id="eqList">Загрузка…</div>
+    </div>
+  </section>
+
+  <!-- СТЕЛЛАЖИ -->
+  <section class="screen" id="tab-racks">
+    <div class="card">
+      <h2>Добавить стеллаж</h2>
+      <label>Название</label>
+      <input id="rackName" placeholder="напр. Стеллаж В1">
+      <label>Склад</label>
+      <select id="rackLocation">
+        <option>Склад Офис 2 этаж</option>
+        <option>Склад ОЗиЛ</option>
+      </select>
+      <button class="btn" id="addRackBtn">Добавить и создать QR-код</button>
+      <div id="rackMsg" class="msg"></div>
+    </div>
+    <div class="card">
+      <h2>Существующие стеллажи</h2>
+      <div class="list" id="rackList">Загрузка…</div>
+    </div>
+  </section>
+
+  <!-- ПЕЧАТЬ ВСЕХ QR -->
+  <section class="screen" id="tab-print">
+    <div class="card printable">
+      <h2>Оборудование</h2>
+      <div class="qr-grid" id="eqQrGrid"></div>
+    </div>
+    <div class="card printable">
+      <h2>Стеллажи</h2>
+      <div class="qr-grid" id="rackQrGrid"></div>
+    </div>
+    <button class="print-btn" id="printAllBtn">Распечатать все QR-коды</button>
+  </section>
+</div>
+
+<script>
+requireLogin(()=>{ renderUserBadge('userbar'); init(); });
+
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+function slugId(prefix, text){
+  const clean = text.toUpperCase().replace(/[^A-ZА-Я0-9]+/gi,'_').replace(/^_+|_+$/g,'');
+  return prefix + '_' + clean + '_' + Math.random().toString(36).slice(2,6).toUpperCase();
+}
+
+async function init(){
+  await refreshEquipment();
+  await refreshRacks();
+
+  document.getElementById('addEqBtn').addEventListener('click', async ()=>{
+    const name = document.getElementById('eqName').value.trim();
+    const serial = document.getElementById('eqSerial').value.trim();
+    const location = document.getElementById('eqLocation').value;
+    const msg = document.getElementById('eqMsg');
+    if(!name){ msg.textContent = 'Введите название'; msg.className='msg err'; return; }
+    const id = slugId('EQ', name);
+    try{
+      await sbPost('equipment', [{ id, name, serial_number: serial || null, current_location: location, current_rack: null }]);
+      msg.textContent = 'Добавлено: ' + name + ' (' + id + ')'; msg.className = 'msg ok';
+      document.getElementById('eqName').value=''; document.getElementById('eqSerial').value='';
+      await refreshEquipment();
+    }catch(e){ msg.textContent = 'Ошибка: ' + e.message; msg.className='msg err'; }
+  });
+
+  document.getElementById('addRackBtn').addEventListener('click', async ()=>{
+    const name = document.getElementById('rackName').value.trim();
+    const location = document.getElementById('rackLocation').value;
+    const msg = document.getElementById('rackMsg');
+    if(!name){ msg.textContent = 'Введите название'; msg.className='msg err'; return; }
+    const id = slugId('RACK', name);
+    try{
+      await sbPost('racks', [{ id, name, location }]);
+      msg.textContent = 'Добавлено: ' + name + ' (' + id + ')'; msg.className='msg ok';
+      document.getElementById('rackName').value='';
+      await refreshRacks();
+    }catch(e){ msg.textContent = 'Ошибка: ' + e.message; msg.className='msg err'; }
+  });
+
+  document.getElementById('printAllBtn').addEventListener('click', ()=>window.print());
+}
+
+async function refreshEquipment(){
+  const listEl = document.getElementById('eqList');
+  const gridEl = document.getElementById('eqQrGrid');
+  try{
+    const eq = await sbGet('equipment?select=*&order=name.asc');
+    listEl.innerHTML = eq.map(e=>`
+      <div class="list-item">
+        <div><b>${e.name}</b><br><span class="meta">S/N: ${e.serial_number||'—'} · ${e.id}</span></div>
+        <div class="meta">${e.current_location||'—'}</div>
+      </div>`).join('') || '<div class="meta">Пока пусто</div>';
+
+    gridEl.innerHTML = '';
+    eq.forEach(e=>{
+      const card = document.createElement('div'); card.className='qr-card';
+      const holder = document.createElement('div');
+      card.innerHTML = `<h3>${e.name}</h3><div class="sub">S/N: ${e.serial_number||'—'}</div>`;
+      card.appendChild(holder);
+      const codeDiv = document.createElement('div'); codeDiv.className='code'; codeDiv.textContent = e.id;
+      card.appendChild(codeDiv);
+      gridEl.appendChild(card);
+      new QRCode(holder, { text: e.id, width:140, height:140, colorDark:"#10151c", colorLight:"#ffffff" });
+    });
+  }catch(e){ listEl.innerHTML = '<div class="meta" style="color:var(--danger)">Ошибка загрузки: '+e.message+'</div>'; }
+}
+
+async function refreshRacks(){
+  const listEl = document.getElementById('rackList');
+  const gridEl = document.getElementById('rackQrGrid');
+  try{
+    const racks = await sbGet('racks?select=*&order=location.asc,name.asc');
+    listEl.innerHTML = racks.map(r=>`
+      <div class="list-item">
+        <div><b>${r.name}</b><br><span class="meta">${r.id}</span></div>
+        <div class="meta">${r.location}</div>
+      </div>`).join('') || '<div class="meta">Пока пусто</div>';
+
+    gridEl.innerHTML = '';
+    racks.forEach(r=>{
+      const card = document.createElement('div'); card.className='qr-card';
+      const holder = document.createElement('div');
+      card.innerHTML = `<h3>${r.name}</h3><div class="sub">${r.location}</div>`;
+      card.appendChild(holder);
+      const codeDiv = document.createElement('div'); codeDiv.className='code'; codeDiv.textContent = r.id;
+      card.appendChild(codeDiv);
+      gridEl.appendChild(card);
+      new QRCode(holder, { text: r.id, width:140, height:140, colorDark:"#10151c", colorLight:"#ffffff" });
+    });
+  }catch(e){ listEl.innerHTML = '<div class="meta" style="color:var(--danger)">Ошибка загрузки: '+e.message+'</div>'; }
+}
+</script>
+</body>
+</html>
