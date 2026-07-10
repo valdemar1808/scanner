@@ -61,8 +61,8 @@
     <p>Выберите склад слева</p>
   </header>
   <div class="top-links">
-    <a href="./index.html">← К сканеру</a>
-    <a href="./admin.html">Управление оборудованием →</a>
+    <a href="./index.html" id="scanLink">← К сканеру</a>
+    <a href="./admin.html" id="adminLink">Управление оборудованием →</a>
   </div>
   <div class="userbar" id="userbar"></div>
 
@@ -102,6 +102,13 @@
 
 <script>
 requireLogin(()=>{ renderUserBadge('userbar'); init(); });
+
+document.getElementById('scanLink').addEventListener('click', function(e){
+  e.preventDefault(); window.location.href = './index.html?t=' + Date.now();
+});
+document.getElementById('adminLink').addEventListener('click', function(e){
+  e.preventDefault(); window.location.href = './admin.html?t=' + Date.now();
+});
 
 const LOCATIONS = ["Склад Офис 2 этаж", "Склад ОЗиЛ", "НТЦ"];
 let currentLocation = LOCATIONS[0];

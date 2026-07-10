@@ -85,8 +85,8 @@
   </header>
 
   <div class="top-links">
-    <a href="./dashboard.html?v=2">Просмотр складов →</a>
-    <a href="./admin.html?v=2">Управление оборудованием →</a>
+    <a href="./dashboard.html" id="dashLink">Просмотр складов →</a>
+    <a href="./admin.html" id="adminLink">Управление оборудованием →</a>
   </div>
   <div class="userbar" id="userbar"></div>
 
@@ -175,6 +175,16 @@ const resultMsg = document.getElementById('resultMsg');
 const resultTime = document.getElementById('resultTime');
 
 requireLogin(()=>{ renderUserBadge('userbar'); init(); });
+
+// Всегда добавляем свежую метку времени к ссылкам, чтобы браузер не брал страницу из кэша
+document.getElementById('dashLink').addEventListener('click', function(e){
+  e.preventDefault();
+  window.location.href = './dashboard.html?t=' + Date.now();
+});
+document.getElementById('adminLink').addEventListener('click', function(e){
+  e.preventDefault();
+  window.location.href = './admin.html?t=' + Date.now();
+});
 
 function init(){
   buildLocButtons(fromGrid, 'from');

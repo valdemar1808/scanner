@@ -62,8 +62,8 @@
     <p>Добавляйте новое оборудование и стеллажи — QR-код создастся автоматически</p>
   </header>
   <div class="top-links">
-    <a href="./index.html">← К сканеру</a>
-    <a href="./dashboard.html">Просмотр складов →</a>
+    <a href="./index.html" id="scanLink">← К сканеру</a>
+    <a href="./dashboard.html" id="dashLink">Просмотр складов →</a>
   </div>
   <div class="userbar" id="userbar"></div>
 
@@ -132,6 +132,13 @@
 
 <script>
 requireLogin(()=>{ renderUserBadge('userbar'); init(); });
+
+document.getElementById('scanLink').addEventListener('click', function(e){
+  e.preventDefault(); window.location.href = './index.html?t=' + Date.now();
+});
+document.getElementById('dashLink').addEventListener('click', function(e){
+  e.preventDefault(); window.location.href = './dashboard.html?t=' + Date.now();
+});
 
 document.querySelectorAll('nav.tabs button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
