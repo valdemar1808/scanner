@@ -131,8 +131,6 @@
 </div>
 
 <script>
-requireLogin(()=>{ renderUserBadge('userbar'); init(); });
-
 document.getElementById('scanLink').addEventListener('click', function(e){
   e.preventDefault(); window.location.href = './index.html?t=' + Date.now();
 });
@@ -248,6 +246,9 @@ async function refreshRacks(){
     });
   }catch(e){ listEl.innerHTML = '<div class="meta" style="color:var(--danger)">Ошибка загрузки: '+e.message+'</div>'; }
 }
+
+// Запускаем проверку входа только теперь, когда все переменные и функции выше уже определены
+requireLogin(()=>{ renderUserBadge('userbar'); init(); });
 </script>
 </body>
 </html>
