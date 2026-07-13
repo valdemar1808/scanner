@@ -130,6 +130,70 @@
   </section>
 </div>
 
+<div id="editModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:999; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px; max-width:640px; width:100%; max-height:88vh; overflow:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h2 id="editTitle" style="margin:0; font-size:17px;">Редактирование оборудования</h2>
+      <button class="refresh-btn" id="closeEditBtn">Закрыть</button>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 14px;">
+      <div><label>Тип</label><input id="f_eq_type"></div>
+      <div><label>Модель</label><input id="f_model"></div>
+      <div><label>S/N</label><input id="f_serial_number"></div>
+      <div><label>Инвентарный номер</label><input id="f_inventory_number"></div>
+      <div><label>Сетевое имя (MAC)</label><input id="f_mac_name"></div>
+      <div><label>IP-адрес</label><input id="f_ip_address"></div>
+      <div>
+        <label>Статус</label>
+        <select id="f_status">
+          <option value="">—</option><option>В работе</option><option>На складе</option>
+          <option>В ремонте</option><option>Списано</option>
+        </select>
+      </div>
+      <div><label>Цена</label><input id="f_price"></div>
+      <div><label>МОЛ</label><input id="f_mol"></div>
+      <div><label>Назначение</label><input id="f_purpose"></div>
+      <div><label>Кому выдан</label><input id="f_issued_to"></div>
+      <div><label>Гарантия/окончание</label><input id="f_warranty_until" placeholder="дд.мм.гггг"></div>
+      <div><label>Местоположение 1</label><input id="f_location_1"></div>
+      <div><label>Местоположение 2</label><input id="f_location_2"></div>
+      <div><label>Местоположение 3</label><input id="f_location_3"></div>
+      <div><label>Местоположение 4</label><input id="f_location_4"></div>
+      <div>
+        <label>Статус проверки</label>
+        <select id="f_check_status">
+          <option value="">—</option><option>Проверено</option><option>Не проверено</option>
+        </select>
+      </div>
+      <div>
+        <label>Статус списания</label>
+        <select id="f_writeoff_status">
+          <option value="">—</option><option>НЕ СПИСАНО</option><option>СПИСАНО</option>
+        </select>
+      </div>
+      <div><label>Дата возврата</label><input id="f_return_date" placeholder="дд.мм.гггг"></div>
+      <div><label>Номер поставки</label><input id="f_supply_number"></div>
+      <div><label>Номер и дата СФ</label><input id="f_invoice_info"></div>
+      <div><label>Поставщик</label><input id="f_supplier"></div>
+      <div style="grid-column:1/-1;"><label>Полное наименование</label><input id="f_full_name"></div>
+      <div style="grid-column:1/-1;">
+        <label>Фото оборудования</label>
+        <input type="file" id="f_photo_file" accept="image/*" capture="environment" style="margin-bottom:10px;">
+        <div id="photoPreviewWrap" style="display:none; margin-bottom:10px;">
+          <img id="photoPreview" style="max-width:160px; border-radius:10px; border:1px solid var(--border); display:block;">
+        </div>
+        <div id="photoUploadMsg" class="msg"></div>
+        <input type="hidden" id="f_attachment_url">
+      </div>
+    </div>
+    <div style="font-size:12px; color:var(--text-dim); margin:4px 0 14px;">
+      Текущее местонахождение (склад/стеллаж) меняется автоматически через сканер и здесь не редактируется.
+    </div>
+    <button class="btn" id="saveEditBtn">Сохранить</button>
+    <div id="editMsg" class="msg"></div>
+  </div>
+</div>
+
 <script>
 document.getElementById('scanLink').addEventListener('click', function(e){
   e.preventDefault(); window.location.href = './index.html?t=' + Date.now();
@@ -160,6 +224,78 @@ function slugId(prefix, text){
   const clean = translitText.toUpperCase().replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');
   return prefix + '_' + clean + '_' + Math.random().toString(36).slice(2,6).toUpperCase();
 }
+
+let equipmentCacheLocal = [];
+const EDIT_FIELDS = ['eq_type','model','serial_number','inventory_number','mac_name','ip_address','status',
+  'price','mol','purpose','issued_to','warranty_until','location_1','location_2','location_3','location_4',
+  'check_status','writeoff_status','return_date','supply_number','invoice_info','supplier','full_name','attachment_url'];
+
+function openEditModal(id){
+  const eq = equipmentCacheLocal.find(e => e.id === id);
+  if(!eq) return;
+  document.getElementById('editTitle').textContent = 'Редактирование: ' + eq.name + ' (' + eq.id + ')';
+  EDIT_FIELDS.forEach(f=>{
+    const el = document.getElementById('f_' + f);
+    if(el) el.value = eq[f] || '';
+  });
+  document.getElementById('f_photo_file').value = '';
+  document.getElementById('photoUploadMsg').textContent = '';
+  const preview = document.getElementById('photoPreview');
+  const wrap = document.getElementById('photoPreviewWrap');
+  if(eq.attachment_url){ preview.src = eq.attachment_url; wrap.style.display = 'block'; }
+  else { wrap.style.display = 'none'; }
+  document.getElementById('editMsg').textContent = '';
+  document.getElementById('editModal').dataset.editingId = id;
+  document.getElementById('editModal').style.display = 'flex';
+}
+document.getElementById('f_photo_file').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const msg = document.getElementById('photoUploadMsg');
+  msg.textContent = 'Загрузка фото…'; msg.className = 'msg';
+  try{
+    const id = document.getElementById('editModal').dataset.editingId;
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = id + '_' + Date.now() + '.' + ext;
+    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/equipment-photos/${path}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'Content-Type': file.type || 'image/jpeg'
+      },
+      body: file
+    });
+    if(!uploadRes.ok) throw new Error(await uploadRes.text());
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/equipment-photos/${path}`;
+    document.getElementById('f_attachment_url').value = publicUrl;
+    document.getElementById('photoPreview').src = publicUrl;
+    document.getElementById('photoPreviewWrap').style.display = 'block';
+    msg.textContent = 'Фото загружено ✓ (нажмите «Сохранить», чтобы прикрепить к карточке)';
+    msg.className = 'msg ok';
+  }catch(err){
+    msg.textContent = 'Ошибка загрузки фото: ' + err.message;
+    msg.className = 'msg err';
+  }
+});
+
+document.getElementById('closeEditBtn').addEventListener('click', ()=>{
+  document.getElementById('editModal').style.display = 'none';
+});
+document.getElementById('saveEditBtn').addEventListener('click', async ()=>{
+  const id = document.getElementById('editModal').dataset.editingId;
+  const msg = document.getElementById('editMsg');
+  const payload = {};
+  EDIT_FIELDS.forEach(f=>{
+    const el = document.getElementById('f_' + f);
+    if(el) payload[f] = el.value.trim() || null;
+  });
+  try{
+    await sbPatch('equipment', 'id=eq.' + encodeURIComponent(id), payload);
+    msg.textContent = 'Сохранено ✓'; msg.className = 'msg ok';
+    await refreshEquipment();
+  }catch(e){ msg.textContent = 'Ошибка: ' + e.message; msg.className = 'msg err'; }
+});
 
 async function init(){
   await refreshEquipment();
@@ -202,11 +338,15 @@ async function refreshEquipment(){
   const gridEl = document.getElementById('eqQrGrid');
   try{
     const eq = await sbGet('equipment?select=*&order=name.asc');
+    equipmentCacheLocal = eq;
     listEl.innerHTML = eq.map(e=>`
-      <div class="list-item">
+      <div class="list-item eq-item" data-id="${e.id}" style="cursor:pointer;">
         <div><b>${e.name}</b><br><span class="meta">S/N: ${e.serial_number||'—'} · ${e.id}</span></div>
         <div class="meta">${e.current_location||'—'}</div>
       </div>`).join('') || '<div class="meta">Пока пусто</div>';
+    listEl.querySelectorAll('.eq-item').forEach(item=>{
+      item.addEventListener('click', ()=> openEditModal(item.dataset.id));
+    });
 
     gridEl.innerHTML = '';
     eq.forEach(e=>{
