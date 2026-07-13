@@ -186,8 +186,26 @@
         <input type="hidden" id="f_attachment_url">
       </div>
     </div>
-    <div style="font-size:12px; color:var(--text-dim); margin:4px 0 14px;">
-      Текущее местонахождение (склад/стеллаж) меняется автоматически через сканер и здесь не редактируется.
+    <div style="font-size:12px; color:var(--text-dim); margin:4px 0 6px;">
+      Местонахождение обычно меняется через сканер QR-кодов, но здесь его тоже можно поправить вручную — изменение зафиксируется в истории операций.
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 14px;">
+      <div>
+        <label>Текущий склад</label>
+        <select id="f_current_location">
+          <option value="">— не указано —</option>
+          <option>Склад Офис 2 этаж</option>
+          <option>Склад ОЗиЛ</option>
+          <option>НТЦ</option>
+          <option>Списано</option>
+        </select>
+      </div>
+      <div>
+        <label>Текущий стеллаж</label>
+        <select id="f_current_rack">
+          <option value="">— нет / не на складе с стеллажами —</option>
+        </select>
+      </div>
     </div>
     <button class="btn" id="saveEditBtn">Сохранить</button>
     <div id="editMsg" class="msg"></div>
@@ -226,9 +244,21 @@ function slugId(prefix, text){
 }
 
 let equipmentCacheLocal = [];
+let racksCacheLocal = [];
 const EDIT_FIELDS = ['eq_type','model','serial_number','inventory_number','mac_name','ip_address','status',
   'price','mol','purpose','issued_to','warranty_until','location_1','location_2','location_3','location_4',
   'check_status','writeoff_status','return_date','supply_number','invoice_info','supplier','full_name','attachment_url'];
+
+function refreshRackOptions(selectedLocation, selectedRackId){
+  const sel = document.getElementById('f_current_rack');
+  const racksHere = racksCacheLocal.filter(r => r.location === selectedLocation);
+  sel.innerHTML = '<option value="">— нет / не на складе с стеллажами —</option>' +
+    racksHere.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+  sel.value = selectedRackId || '';
+}
+document.getElementById('f_current_location').addEventListener('change', (e)=>{
+  refreshRackOptions(e.target.value, null);
+});
 
 function openEditModal(id){
   const eq = equipmentCacheLocal.find(e => e.id === id);
@@ -244,6 +274,8 @@ function openEditModal(id){
   const wrap = document.getElementById('photoPreviewWrap');
   if(eq.attachment_url){ preview.src = eq.attachment_url; wrap.style.display = 'block'; }
   else { wrap.style.display = 'none'; }
+  document.getElementById('f_current_location').value = eq.current_location || '';
+  refreshRackOptions(eq.current_location || '', eq.current_rack || '');
   document.getElementById('editMsg').textContent = '';
   document.getElementById('editModal').dataset.editingId = id;
   document.getElementById('editModal').style.display = 'flex';
@@ -284,15 +316,40 @@ document.getElementById('closeEditBtn').addEventListener('click', ()=>{
 });
 document.getElementById('saveEditBtn').addEventListener('click', async ()=>{
   const id = document.getElementById('editModal').dataset.editingId;
+  const eq = equipmentCacheLocal.find(e => e.id === id);
   const msg = document.getElementById('editMsg');
   const payload = {};
   EDIT_FIELDS.forEach(f=>{
     const el = document.getElementById('f_' + f);
     if(el) payload[f] = el.value.trim() || null;
   });
+
+  const newLocation = document.getElementById('f_current_location').value || null;
+  const newRack = document.getElementById('f_current_rack').value || null;
+  const oldLocation = eq.current_location || null;
+  const oldRack = eq.current_rack || null;
+  const locationChanged = newLocation !== oldLocation || newRack !== oldRack;
+
+  payload.current_location = newLocation;
+  payload.current_rack = newRack;
+  payload.updated_at = new Date().toISOString();
+
   try{
+    if(locationChanged){
+      await sbPost('movements', [{
+        equipment_id: eq.id,
+        equipment_name: eq.name,
+        type: 'Ручное изменение',
+        from_location: oldLocation,
+        to_location: newLocation,
+        rack_from: oldRack,
+        rack_to: newRack,
+        user_name: currentUser()
+      }]);
+    }
     await sbPatch('equipment', 'id=eq.' + encodeURIComponent(id), payload);
-    msg.textContent = 'Сохранено ✓'; msg.className = 'msg ok';
+    msg.textContent = locationChanged ? 'Сохранено ✓ (изменение места записано в историю)' : 'Сохранено ✓';
+    msg.className = 'msg ok';
     await refreshEquipment();
   }catch(e){ msg.textContent = 'Ошибка: ' + e.message; msg.className = 'msg err'; }
 });
@@ -367,6 +424,7 @@ async function refreshRacks(){
   const gridEl = document.getElementById('rackQrGrid');
   try{
     const racks = await sbGet('racks?select=*&order=location.asc,name.asc');
+    racksCacheLocal = racks;
     listEl.innerHTML = racks.map(r=>`
       <div class="list-item">
         <div><b>${r.name}</b><br><span class="meta">${r.id}</span></div>
